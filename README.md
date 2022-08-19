@@ -10,3 +10,7 @@ A menu of shell scripts to help do rudimentary photo triage when importing photo
 * Use the Finder gallery view and shortcut keys (custom) to tag files as *keep* (files with a star rating in their EXIF data will automatically be tagged as *keep*)
 * Press 3 to match all *keep* 'JPG' files with their 'RAF' (raw files) counterparts, copy both to the 'keep' folder.
 * Optional: Press 6 to convert all 'JPG's in 'match' to 'HEIC' files in the 'ToApple" folder, then drag all the files in the 'ToApple' folder into the Import folder in the Photos app to import them into your Photos library.
+
+
+## Support Scripts
+Using Automator and Keyboard Settings with the 'Tag Keep' and 'Tag Clear' to assign shortcut keys when in Finder to quickly assign 'keep' tags to the keeper 'jpg' files. 
