@@ -351,7 +351,7 @@ funVerifyCopyFileArray(){
     unverified=()
     for i in "${!arr[@]}"; do
         funProgressUpdate $i "${#arr[@]}"
-        filematch=$(rsync -cv --stats "${arr[i]}" "./tmp/" | awk '/Number of files transferred: /{print $NF}')
+        filematch=$(rsync -cv --stats "${arr[i]}" "$dest" | awk '/Number of files transferred: /{print $NF}')
         if [ "$filematch" == "0" ]; then
             #no problem
             : # do nothing
@@ -405,13 +405,13 @@ funCopyExternalOriginals (){
                 echo "You selected: $opt";
 
                 # Find files and convert to array of filenames
-                jpgfiles_str=$(find "$opt" -type f -name "*.$jpg" -not -path "*/.*");
+                jpgfiles_str=$(find "$opt" -type f -name "*.$jpg" -not -path "*/.*" 2>/dev/null);
                 IFS=$'\n' jpgfiles_arr=($jpgfiles_str)
 
-                rawfiles_str=$(find "$opt" -type f -name "*.$raw" -not -path "*/.*");
+                rawfiles_str=$(find "$opt" -type f -name "*.$raw" -not -path "*/.*" 2>/dev/null);
                 IFS=$'\n' rawfiles_arr=($rawfiles_str)
 
-                movfiles_str=$(find "$opt" -type f -name "*.$mov" -not -path "*/.*");
+                movfiles_str=$(find "$opt" -type f -name "*.$mov" -not -path "*/.*" 2>/dev/null);
                 IFS=$'\n' movfiles_arr=($movfiles_str)
 
                 # Combine into one array of filenames
