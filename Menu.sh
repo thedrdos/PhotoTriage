@@ -6,6 +6,8 @@ printf "\n"
 # Define work folder and work tree
 #WorkFolder=~/Pictures/ToBeProcessed
 WorkFolder=${1:-~/Pictures/ToBeProcessed} 
+# Define where the database file is for RAW Power (the macOS photo program)
+RAWPowerDataBase=~/Library/Containers/com.gentlemencoders.RAWPower/Data/Documents/metadata.db
 # Define default HEIC quality factor, upto 100, system default is 80
 HEICquality=90 
 HEICquality_default=$HEICquality
@@ -50,36 +52,135 @@ funProgressUpdate (){
     printf "%2.0f %% Completed\r" $(($1*100/$2))
 }
 
+# https://brettterpstra.com/2017/08/22/tagging-files-from-the-command-line/
+# https://www.linkedin.com/pulse/getting-setting-file-tags-via-command-line-os-x-boris-herman
+funAddKeepTag (){
+    xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><string>Keep</string></array></plist>' $1
+}
+funAdd1StarTag (){
+    #xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><string>1Star</string></array></plist>' $1
+    xattr -xw com.apple.metadata:_kMDItemUserTags $(echo '["Keep","1Star"]' | plutil -convert binary1 - -o - | xxd -p -c 256 -u) $1
+    xattr -w com.apple.metadata:kMDItemStarRating 1 $1
+}
+funAdd2StarTag (){
+    # xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><string>2Star</string></array></plist>' $1
+    xattr -xw com.apple.metadata:_kMDItemUserTags $(echo '["Keep","2Star"]' | plutil -convert binary1 - -o - | xxd -p -c 256 -u) $1
+    xattr -w com.apple.metadata:kMDItemStarRating 2 $1
+}
+funAdd3StarTag (){
+    # xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><string>3Star</string></array></plist>' $1
+    xattr -xw com.apple.metadata:_kMDItemUserTags $(echo '["Keep","3Star"]' | plutil -convert binary1 - -o - | xxd -p -c 256 -u) $1
+    xattr -w com.apple.metadata:kMDItemStarRating 3 $1
+}
+funAdd4StarTag (){
+    # xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><string>4Star</string></array></plist>' $1
+    xattr -xw com.apple.metadata:_kMDItemUserTags $(echo '["Keep","4Star"]' | plutil -convert binary1 - -o - | xxd -p -c 256 -u) $1
+    xattr -w com.apple.metadata:kMDItemStarRating 4 $1
+}
+funAdd5StarTag (){
+    # xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><string>5Star</string></array></plist>' $1
+    xattr -xw com.apple.metadata:_kMDItemUserTags $(echo '["Keep","5Star"]' | plutil -convert binary1 - -o - | xxd -p -c 256 -u) $1
+    xattr -w com.apple.metadata:kMDItemStarRating 5 $1
+}
+
+funRatingToTag (){
+    case $1 in
+                    1 | "1")
+                    funAdd1StarTag "$2"
+                    ;;
+                    2 | "2")
+                    funAdd2StarTag "$2"
+                    ;;
+                    3 | "3")
+                    funAdd3StarTag "$2"
+                    ;;
+                    4 | "4")
+                    funAdd4StarTag "$2"
+                    ;;
+                    5 | "5")
+                    funAdd5StarTag "$2"
+                    ;;
+                    *)
+                    echo "Unrecognized star rating: $1"
+                esac
+}
+
 funRatingToKeepTag (){
     echo Tag jpgs photos with a non-zero rating as "Keep"
     NFiles=$(ls $WorkFolder/jpgs/*.$jpg | wc -l)
-    printf "  Checking %s JPG files\n" $NFiles
+    printf "  Checking %s JPG files for Keep Tags\n" $NFiles
     count=0
     for i in $WorkFolder/jpgs/*.$jpg; do
         funProgressUpdate $count $NFiles
         (( count++ ))
         # Read EXIF rating and tag the file "Keep" if rating is non-zero
         rat=$(exiftool -s -s -s -Rating $i)
+        # [[ $rat -ne 0 ]] && \
+        #     funAddKeepTag "$i"
         [[ $rat -ne 0 ]] && \
-                xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><string>Keep</string></array></plist>' $i
+                funRatingToTag $rat $i
     done
     printf "\r  100 %% Completed \n"
 }
 
+funRAWPowerRatingToEXIF (){
+    if [ -z "$RAWPowerDataBase" ]; then
+        : 
+        else # if there is no database given, then don't try to read it
+        NFiles=$(ls $WorkFolder/jpgs/*.$jpg | wc -l)
+        printf "  Checking %s JPG files for Ratings\n" $NFiles
+        count=0
+        countRating=0
+        for i in $WorkFolder/jpgs/*.$jpg; do
+            funProgressUpdate $count $NFiles
+            (( count++ ))
+            # Read the RAWPowerDataBase and write ratings to EXIF data and assign Keep
+            rat=$(sqlite3 "$RAWPowerDataBase" "select rating from assets where filename = '$i' order by id DESC limit 1")
+            # filename may not be unique in the table, so order by id (should represent order of when added) and only 1 to get latest entry
+            if [ -z "$rat" ]; then
+                :
+                else  #check if rating is empty, i.e. probably didn't find the file
+                # Assign the rating and a Keep tag
+                exiftool -q -P -overwrite_original_in_place -Rating=$rat -RatingPercent=$(( $rat * 20 ))  "$i" 
+                (( countRating++ ))
+                # [[ $rat -ne 0 ]] && \
+                #     funRatingToTag $rat $i
+                # #     xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><string>Keep</string></array></plist>' $i
+            fi
+        done
+        printf "\r  100 %% Completed - $countRating files rated\n"
+    fi
+}
+
 funKeepToMatch (){
+    funRAWPowerRatingToEXIF
+    funRatingToKeepTag
+
+
+    #read -t 4 # Pause 1 sec, hopefully the tag database catches up
+    # not sure if this is needed, trying to make sure that the spotlight search works, i.e. has indexed properly the jpgs folder
+    # mdimport $WorkFolder/jpgs/
+
     echo Copying all JPGs in jpg and all RAF in raw with matching name to the folder match
     NFiles=$(mdfind 'kMDItemUserTags=Keep' -onlyin $WorkFolder/jpgs/ | wc -l)
     printf "  Attempting to match %s JPG files\n" $NFiles
     count=0
-
     mdfind 'kMDItemUserTags=Keep' -onlyin $WorkFolder/jpgs/ | while read i; do
         funProgressUpdate $count $NFiles
         (( count++ ))
+        # If a rating was assigned by RAW Power, then write it to the EXIF data and tag the file to keep
         # Copy the raw file if one exists with same name as jpg
         [ -f "$i" ] || break # Break if no files found
-        cp -n -p $i $WorkFolder/match/$(basename -- $i) # Copy jpgs, don't overwrite
-        [ -f $WorkFolder/org/$(basename -- "$i" .$jpg).$raw ] && \
-            cp -n -p $WorkFolder/org/$(basename -- "$i" .$jpg).$raw $WorkFolder/match # Copy matching raws
+        # cp -n -p $i $WorkFolder/match/$(basename -- $i) # Copy jpgs, don't overwrite
+        rsync -acE $i $WorkFolder/match/$(basename -- $i) # Copy jpgs, don't overwrite
+        if [ -f $WorkFolder/org/$(basename -- "$i" .$jpg).$raw ] ; then
+            # cp -n -p $WorkFolder/org/$(basename -- "$i" .$jpg).$raw $WorkFolder/match # Copy matching raws
+            rsync -acE $WorkFolder/org/$(basename -- "$i" .$jpg).$raw $WorkFolder/match # Copy matching raws
+            rat=$(exiftool -s -s -s -Rating $i) # copy the rating to the Raw file
+            [[ $rat -ne 0 ]] && \
+                exiftool -q -P -overwrite_original_in_place -Rating=$rat -RatingPercent=$(( $rat * 20 )) $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
+                funRatingToTag $rat $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
+        fi
     done
     printf "\r  100 %% Completed \n"
 }
@@ -159,6 +260,10 @@ funJpgToHeic () {
     # Convert jpg to heic, first argument is input file, second output file
     #sips -s format heic -s formatOptions80 jpgs/XT300394.JPG --out test.heic
     sips -s format heic -s formatOptions $HEICquality $1 --out $2 >> /dev/null
+    # Get the creation date time stamp of the target file, saved as 't'.
+    t="$(/usr/bin/GetFileInfo -d "$1")"
+    # Set the modified and creation date time stamps of the target file to the saved value held in 't'.
+    /usr/bin/SetFile -m "$t" -d "$t" "$2"
 }
 
 funTrashWorkspace () {
@@ -216,12 +321,150 @@ funUnmountExternalDrives () {
     fi
 }
 
+funCopyFileArray(){
+    # Copy files, 1st arg is array of source files, 2nd is destination folder
+    # Example: 
+    # copy_files=("file1.txt" "file2.txt")
+    # funCopyFileArray copy_files[@] "./destination/"
+    declare -a arr=("${!1}")
+    local dest="$2"
+
+    echo "Copying Files"
+    funProgressUpdate 0 "${#arr[@]}"
+    for i in "${!arr[@]}"; do
+        funProgressUpdate $i "${#arr[@]}"
+        rsync -acE "${arr[i]}" "$dest"
+    done
+    printf "\r  100 %% Completed \n"
+}
+
+funVerifyCopyFileArray(){
+    # Verify copied files, 1st arg is array of source files, 2nd is destination folder
+    # Example: 
+    # copy_files=("file1.txt" "file2.txt")
+    # funVerifyCopyFileArray copy_files[@] "./destination/"
+    declare -a arr=("${!1}")
+    local dest="$2"
+    echo "Verifing File Copying"
+    funProgressUpdate 0 "${#arr[@]}"
+    allcopied=0
+    unverified=()
+    for i in "${!arr[@]}"; do
+        funProgressUpdate $i "${#arr[@]}"
+        filematch=$(rsync -cv --stats "${arr[i]}" "./tmp/" | awk '/Number of files transferred: /{print $NF}')
+        if [ "$filematch" == "0" ]; then
+            #no problem
+            : # do nothing
+        else
+            # echo "Not copied: ${arr[i]}"
+            allcopied=1
+            unverified+=(${arr[i]})
+        fi
+    done
+    printf "\r  100 %% Completed \n"
+    if [[ $allcopied == 0 ]]; then
+        echo "All Files Verified"; 
+    else
+        echo "The following files do NOT have verified copies (don't exist or non-identical):"
+        for i in "${!unverified[@]}"; do
+            echo "$unverified[i]"
+        done
+    fi
+}
+
+funConfirm (){
+    # Prompt yes/no confirmation with no as default
+    read -p "$1 (y/n - default no)" -n 1 -r
+    echo    # (optional) move to a new line
+    if [[ $REPLY =~ ^[Yy]$ ]]
+    then
+        return 0
+    else 
+        return 1
+    fi
+}
+
+funCopyExternalOriginals (){
+    extdrv=$(mount | grep "\ /Volumes/" | grep -o "/Volumes/[^(]*");
+    # echo "$extdrv"
+    # If external drives connected, offer to choose one to copy from
+    if [ ! -z "$extdrv" ]; then
+        IFS=$'\n' extdrvArray=($extdrv)
+        for line in "${extdrvArray[@]}"; do
+            echo "$line"
+        done
+        unset IFS
+
+        echo "Choose an External Drive To Copy Images And Videos From:"
+        PS3='Please enter your choice: '
+        select opt in "${extdrvArray[@]}" None;do
+            opt=${opt% }
+            # Check if the number in the response is within the integer lenght of the number of drives
+            if [ $(($REPLY)) -le "${#extdrvArray[@]}" ] && [ $(($REPLY)) -ge 1 ]; then
+                echo "yes"
+                echo "You selected: $opt";
+
+                # Find files and convert to array of filenames
+                jpgfiles_str=$(find "$opt" -type f -name "*.$jpg" -not -path "*/.*");
+                IFS=$'\n' jpgfiles_arr=($jpgfiles_str)
+
+                rawfiles_str=$(find "$opt" -type f -name "*.$raw" -not -path "*/.*");
+                IFS=$'\n' rawfiles_arr=($rawfiles_str)
+
+                movfiles_str=$(find "$opt" -type f -name "*.$mov" -not -path "*/.*");
+                IFS=$'\n' movfiles_arr=($movfiles_str)
+
+                # Combine into one array of filenames
+                photofiles_arr=()
+                photofiles_arr+=( "${jpgfiles_arr[@]}" )
+                photofiles_arr+=( "${rawfiles_arr[@]}" )
+                photofiles_arr+=( "${movfiles_arr[@]}" )
+
+                # Declare found files
+                echo "Found ${#jpgfiles_arr[@]} $jpg files."
+                echo "Found ${#rawfiles_arr[@]} $raw files."
+                echo "Found ${#movfiles_arr[@]} $mov files."
+
+                echo "Copying ${#photofiles_arr[@]} files"
+                funCopyFileArray photofiles_arr[@]  "$WorkFolder/org/" 
+
+                echo "Verifing ${#photofiles_arr[@]} files have been accurately copied"
+                funVerifyCopyFileArray photofiles_arr[@]  "$WorkFolder/org" 
+                # If successfully verified, then offer to delete all the originals
+                if [[ $allcopied == 0 ]] ; then
+                    echo "All copied, all well"
+                    read -p "Delete all the copied files from the external device? (y/n - default no) " -n 1 -r
+                    echo    # (optional) move to a new line
+                    if [[ $REPLY =~ ^[Yy]$ ]]
+                    then
+                        funProgressUpdate 0 "${#photofiles_arr[@]}"
+                        for i in "${!photofiles_arr[@]}"; do
+                            funProgressUpdate $i "${#photofiles_arr[@]}"
+                            rm "${photofiles_arr[i]}" 
+                        done
+                        printf "\r  100 %% Completed \n"
+                    fi
+                else
+                    echo "Copy unsuccessful"
+                fi
+                break 
+            else
+                echo "no"
+                echo "None selected"
+                break 
+            fi
+        done
+    else
+        echo No mounted external drives to unmount
+    fi
+}
+
 ###################################################################
 #  Menu
 ################################################################### 
 PS3='Please enter your choice: '
 options=(
-    "Start:         Open org folder and external drives" 
+    "Start:         Open org folder and external drives, copy photos and movies" 
     "Initialize:    Copy JPGs from org to jpgs folder, tag starred pics \"Keep\"" 
     "Match Keeps:   Copy JPGs from jpgs tagged \"Keep\", +raw from org, to match folder"
     "Del Matched:   Delete JPGs with matching raw files in match folder"
@@ -238,20 +481,25 @@ while true; do
     clear
     printf "\n"
     case $opt in
-        "Start:         Open org folder and external drives")
+        "Start:         Open org folder and external drives, copy photos and movies")
             echo $opt 
-            printf "Manually copy pictures from external media to the org folder.\n"
+            printf "Copy photos and movies from external media to the org folder.\n"
             printf "\n"
             funBuildWorkFolder
             open -a Finder $WorkFolder/org
             funOpenMountedExternalDrives
+            funCopyExternalOriginals
             break
             ;;
         "Initialize:    Copy JPGs from org to jpgs folder, tag starred pics \"Keep\"")
             echo $opt
             funBuildWorkFolder
-            cp -n -p $WorkFolder/org/*.$jpg $WorkFolder/jpgs/
-            cp -n -p $WorkFolder/org/*.$mov $WorkFolder/mov/
+            # cp -n -p $WorkFolder/org/*.$jpg $WorkFolder/jpgs/
+            # cp -n -p $WorkFolder/org/*.$mov $WorkFolder/mov/
+            rsync -acE $WorkFolder/org/*.$jpg $WorkFolder/jpgs/
+            if [[ $( find $WorkFolder/org -name "*.$mov" | grep . ) ]]; then 
+                rsync -acE $WorkFolder/org/*.$mov $WorkFolder/mov/
+                fi
             funRatingToKeepTag
             open -a Finder $WorkFolder/jpgs/
             break
@@ -289,7 +537,8 @@ while true; do
             cd $WorkFolder
             echo "Copy match to Keep-TodaysDate"
             mkdir "Keep-$(date +%Y%m%d)"
-            cp -n -p $WorkFolder/match/* "Keep-$(date +%Y%m%d)"
+            # cp -n -p $WorkFolder/match/* "Keep-$(date +%Y%m%d)"
+            rsync -acE $WorkFolder/match/* "Keep-$(date +%Y%m%d)"
             echo "Clear the workspace: move jpgs, match and org into forTrash-date"
             funTrashWorkspace
             open -a Finder $WorkFolder
