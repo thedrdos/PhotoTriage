@@ -496,12 +496,24 @@ while true; do
             funBuildWorkFolder
             # cp -n -p $WorkFolder/org/*.$jpg $WorkFolder/jpgs/
             # cp -n -p $WorkFolder/org/*.$mov $WorkFolder/mov/
-            rsync -acE $WorkFolder/org/*.$jpg $WorkFolder/jpgs/
+
+            jpgfiles_str=$(find $WorkFolder/org/*.$jpg -type f -name "*.$jpg" -not -path "*/.*" 2>/dev/null);
+            IFS=$'\n' jpgfiles_arr=($jpgfiles_str)
+            echo "Copying ${#jpgfiles_arr[@]} files"
+            funCopyFileArray jpgfiles_arr[@]  "$WorkFolder/jpgs/"
+            
+            # rsync -acE $WorkFolder/org/*.$jpg $WorkFolder/jpgs/
             if [[ $( find $WorkFolder/org -name "*.$mov" | grep . ) ]]; then 
-                rsync -acE $WorkFolder/org/*.$mov $WorkFolder/mov/
-                fi
+                # rsync -acE $WorkFolder/org/*.$mov $WorkFolder/mov/
+                movfiles_str=$(find $WorkFolder/org/*.$mov -type f -name "*.$mov" -not -path "*/.*" 2>/dev/null);
+                IFS=$'\n' movfiles_arr=($movfiles_str)
+                echo "Copying ${#jpgfiles_arr[@]} files"
+                funCopyFileArray jpgfiles_arr[@]  "$WorkFolder/mov/"
+            fi
             funRatingToKeepTag
             open -a Finder $WorkFolder/jpgs/
+            # Start Raw Power if it exist for image rating/culling
+            open -a "Raw Power" >> /dev/null
             break
             ;;
          "Match Keeps:   Copy JPGs from jpgs tagged \"Keep\", +raw from org, to match folder")
@@ -538,7 +550,8 @@ while true; do
             echo "Copy match to Keep-TodaysDate"
             mkdir "Keep-$(date +%Y%m%d)"
             # cp -n -p $WorkFolder/match/* "Keep-$(date +%Y%m%d)"
-            rsync -acE $WorkFolder/match/* "Keep-$(date +%Y%m%d)"
+            # rsync -acE $WorkFolder/match/* "Keep-$(date +%Y%m%d)"
+            mv "$WorkFolder/match" "$WorkFolder/Keep-$(date +%Y%m%d)"
             echo "Clear the workspace: move jpgs, match and org into forTrash-date"
             funTrashWorkspace
             open -a Finder $WorkFolder
