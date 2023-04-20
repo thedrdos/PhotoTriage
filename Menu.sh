@@ -107,19 +107,19 @@ funRatingToTag (){
 
 
 funAdd5StarKeyword (){
-    exiftool -q -P -overwrite_original_in_place -keywords-=X5 -keywords+=X5 $1
+    exiftool -q -P -overwrite_original_in_place -keywords-=R*****5 -keywords+=R*****5 $1
 }
 funAdd4StarKeyword (){
-    exiftool -q -P -overwrite_original_in_place -keywords-=X4 -keywords+=X4 $1
+    exiftool -q -P -overwrite_original_in_place -keywords-=R****4 -keywords+=R****4 $1
 }
 funAdd3StarKeyword (){
-    exiftool -q -P -overwrite_original_in_place -keywords-=X3 -keywords+=X3 $1
+    exiftool -q -P -overwrite_original_in_place -keywords-=R***3 -keywords+=R***3 $1
 }
 funAdd2StarKeyword (){
-    exiftool -q -P -overwrite_original_in_place -keywords-=X2 -keywords+=X2 $1
+    exiftool -q -P -overwrite_original_in_place -keywords-=R**2 -keywords+=R**2 $1
 }
 funAdd2StarKeyword (){
-    exiftool -q -P -overwrite_original_in_place -keywords-=X1 -keywords+=X1 $1
+    exiftool -q -P -overwrite_original_in_place -keywords-=R*1 -keywords+=R*1 $1
 }
 funRatingToKeyword (){
     case $1 in
