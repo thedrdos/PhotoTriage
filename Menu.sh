@@ -105,6 +105,45 @@ funRatingToTag (){
                 esac
 }
 
+
+funAdd5StarKeyword (){
+    exiftool -q -P -overwrite_original_in_place -keywords-=X5 -keywords+=X5 $1
+}
+funAdd4StarKeyword (){
+    exiftool -q -P -overwrite_original_in_place -keywords-=X4 -keywords+=X4 $1
+}
+funAdd3StarKeyword (){
+    exiftool -q -P -overwrite_original_in_place -keywords-=X3 -keywords+=X3 $1
+}
+funAdd2StarKeyword (){
+    exiftool -q -P -overwrite_original_in_place -keywords-=X2 -keywords+=X2 $1
+}
+funAdd2StarKeyword (){
+    exiftool -q -P -overwrite_original_in_place -keywords-=X1 -keywords+=X1 $1
+}
+funRatingToKeyword (){
+    case $1 in
+                    1 | "1")
+                    funAdd1StarKeyword "$2"
+                    ;;
+                    2 | "2")
+                    funAdd2StarKeyword "$2"
+                    ;;
+                    3 | "3")
+                    funAdd3StarKeyword "$2"
+                    ;;
+                    4 | "4")
+                    funAdd4StarKeyword "$2"
+                    ;;
+                    5 | "5")
+                    funAdd5StarKeyword "$2"
+                    ;;
+                    *)
+                    echo "Unrecognized star rating: $1"
+                esac
+}
+
+
 funRatingToKeepTag (){
     echo Tag jpgs photos with a non-zero rating as "Keep"
     NFiles=$(ls $WorkFolder/jpgs/*.$jpg | wc -l)
@@ -152,9 +191,31 @@ funRAWPowerRatingToEXIF (){
     fi
 }
 
+funMatchSetRatingToKeyword (){
+    echo Keyword all photos in Match with their non-zero rating r as "Xr"
+    NFiles=$(ls $WorkFolder/match/*.{$jpg,$raw} | wc -l)
+    printf "  Checking %s files for Ratings \n" $NFiles
+    count=0
+    for i in $WorkFolder/match/*.{$jpg,$raw}; do
+        funProgressUpdate $count $NFiles
+        (( count++ ))
+        # Read EXIF rating and keyword the rating if non-zero
+        rat=$(exiftool -s -s -s -Rating $i)
+        # [[ $rat -ne 0 ]] && \
+        #     funAddKeepTag "$i"
+        [[ $rat -ne 0 ]] && \
+                funRatingToKeyword $rat $i
+    done
+    printf "\r  100 %% Completed \n"
+
+}
+
+
 funKeepToMatch (){
     funRAWPowerRatingToEXIF
     funRatingToKeepTag
+    #funRatingToEXIFkeyword
+    #  example: exiftool -q -P -overwrite_original_in_place -keywords-=X3 -keywords+=X3 testimg.JPG # doesn't change create/modify date and prevents duplicate keywords
 
 
     #read -t 4 # Pause 1 sec, hopefully the tag database catches up
@@ -183,6 +244,8 @@ funKeepToMatch (){
         fi
     done
     printf "\r  100 %% Completed \n"
+
+    funMatchSetRatingToKeyword
 }
 
 funDelJpgsIfRafExistsInMatch () {
