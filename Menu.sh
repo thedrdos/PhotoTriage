@@ -118,7 +118,7 @@ funAdd3StarKeyword (){
 funAdd2StarKeyword (){
     exiftool -q -P -overwrite_original_in_place -keywords-=R**2 -keywords+=R**2 $1
 }
-funAdd2StarKeyword (){
+funAdd1StarKeyword (){
     exiftool -q -P -overwrite_original_in_place -keywords-=R*1 -keywords+=R*1 $1
 }
 funRatingToKeyword (){
@@ -180,7 +180,9 @@ funRAWPowerRatingToEXIF (){
                 :
                 else  #check if rating is empty, i.e. probably didn't find the file
                 # Assign the rating and a Keep tag
-                exiftool -q -P -overwrite_original_in_place -Rating=$rat -RatingPercent=$(( $rat * 20 ))  "$i" 
+                #exiftool -q -P -overwrite_original_in_place -Rating=$rat -RatingPercent=$(( $rat * 20 ))  "$i" 
+                # using RatingPercent breaks using FujiFilm XRAW Studio, don't know why but it does
+                exiftool -q -P -overwrite_original_in_place -Rating=$rat "$i" 
                 (( countRating++ ))
                 # [[ $rat -ne 0 ]] && \
                 #     funRatingToTag $rat $i
@@ -239,7 +241,9 @@ funKeepToMatch (){
             rsync -acE $WorkFolder/org/$(basename -- "$i" .$jpg).$raw $WorkFolder/match # Copy matching raws
             rat=$(exiftool -s -s -s -Rating $i) # copy the rating to the Raw file
             [[ $rat -ne 0 ]] && \
-                exiftool -q -P -overwrite_original_in_place -Rating=$rat -RatingPercent=$(( $rat * 20 )) $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
+                #exiftool -q -P -overwrite_original_in_place -Rating=$rat -RatingPercent=$(( $rat * 20 )) $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
+                # using RatingPercent breaks using FujiFilm XRAW Studio, don't know why but it does
+                exiftool -q -P -overwrite_original_in_place -Rating=$rat $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
                 funRatingToTag $rat $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
         fi
     done
