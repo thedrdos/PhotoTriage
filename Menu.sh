@@ -555,6 +555,7 @@ while true; do
             funBuildWorkFolder
             open -a Finder $WorkFolder/org
             funOpenMountedExternalDrives
+            open -a Terminal # return focus to this terminal script, hopefully
             funCopyExternalOriginals
             break
             ;;
