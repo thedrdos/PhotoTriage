@@ -23,10 +23,11 @@ funBuildWorkFolder (){
 funBuildWorkFolder
 cd $WorkFolder
 
-jpg="JPG" # JPG file extension
-raw="RAF" # Raw file extension
-heic="HEIC" # HEIC file extension
-mov="MOV" # Video file extension
+jpg="JPG" # JPG file extension - from Fujifilm camera
+hif="HIF" # HEIF file extension - from Fujifilm camera
+raw="RAF" # Raw file extension - from Fujifilm camera
+heic="HEIC" # HEIC file extension - to Apple Photos
+mov="MOV" # Video file extension - from Fujifilm camera
 
 ###################################################################
 # Functions
@@ -105,21 +106,26 @@ funRatingToTag (){
                 esac
 }
 
-
+# couldn't get exiftool to shut up and stop just listing all exif data, hence this workaround of capturing the output and grep-ing Errors
 funAdd5StarKeyword (){
-    exiftool -q -P -overwrite_original_in_place -keywords-=R*****5 -keywords+=R*****5 $1
+    outcheck=$(exiftool -q -q -P -overwrite_original_in_place -keywords-=R*****5 -keywords+=R*****5 $1)
+    echo $outcheck | grep Error
 }
 funAdd4StarKeyword (){
-    exiftool -q -P -overwrite_original_in_place -keywords-=R****4 -keywords+=R****4 $1
+    outcheck=$(exiftool -q-q -P -overwrite_original_in_place -keywords-=R****4 -keywords+=R****4 $1)
+    echo $outcheck | grep Error
 }
 funAdd3StarKeyword (){
-    exiftool -q -P -overwrite_original_in_place -keywords-=R***3 -keywords+=R***3 $1
+    outcheck=$(exiftool -q -q -P -overwrite_original_in_place -keywords-=R***3 -keywords+=R***3 $1)
+    echo $outcheck | grep Error
 }
 funAdd2StarKeyword (){
-    exiftool -q -P -overwrite_original_in_place -keywords-=R**2 -keywords+=R**2 $1
+    outcheck=$(exiftool -q -q -P -overwrite_original_in_place -keywords-=R**2 -keywords+=R**2 $1)
+    echo $outcheck | grep Error
 }
 funAdd1StarKeyword (){
-    exiftool -q -P -overwrite_original_in_place -keywords-=R*1 -keywords+=R*1 $1
+    outcheck=$(exiftool -q -q -P -overwrite_original_in_place -keywords-=R*1 -keywords+=R*1 $1)
+    echo $outcheck | grep Error
 }
 funRatingToKeyword (){
     case $1 in
@@ -146,10 +152,12 @@ funRatingToKeyword (){
 
 funRatingToKeepTag (){
     echo Tag jpgs photos with a non-zero rating as "Keep"
-    NFiles=$(ls $WorkFolder/jpgs/*.$jpg | wc -l)
-    printf "  Checking %s JPG files for Keep Tags\n" $NFiles
+    # NFiles=$(ls $WorkFolder/jpgs/*.{$jpg,$hif}) | wc -l)
+    NFiles=$(find  $WorkFolder/jpgs/ -type f -name "*.$jpg" -o -name "*.$hif" | wc -l)
+    printf "  Checking %s JPG/HIF files for Keep Tags\n" $NFiles
     count=0
-    for i in $WorkFolder/jpgs/*.$jpg; do
+    shopt -s nullglob
+    for i in $WorkFolder/jpgs/*.{$jpg,$hif}; do
         funProgressUpdate $count $NFiles
         (( count++ ))
         # Read EXIF rating and tag the file "Keep" if rating is non-zero
@@ -166,11 +174,13 @@ funRAWPowerRatingToEXIF (){
     if [ -z "$RAWPowerDataBase" ]; then
         : 
         else # if there is no database given, then don't try to read it
-        NFiles=$(ls $WorkFolder/jpgs/*.$jpg | wc -l)
-        printf "  Checking %s JPG files for Ratings\n" $NFiles
+        # NFiles=$(ls $WorkFolder/jpgs/*.($jpg|$hif|) | wc -l)
+        NFiles=$(find  $WorkFolder/jpgs/ -type f -name "*.$jpg" -o -name "*.$hif" | wc -l)
+        printf "  Checking %s JPG/HIF files for Ratings\n" $NFiles
         count=0
         countRating=0
-        for i in $WorkFolder/jpgs/*.$jpg; do
+        shopt -s nullglob
+        for i in $WorkFolder/jpgs/*.{$jpg,$hif}; do
             funProgressUpdate $count $NFiles
             (( count++ ))
             # Read the RAWPowerDataBase and write ratings to EXIF data and assign Keep
@@ -182,7 +192,7 @@ funRAWPowerRatingToEXIF (){
                 # Assign the rating and a Keep tag
                 #exiftool -q -P -overwrite_original_in_place -Rating=$rat -RatingPercent=$(( $rat * 20 ))  "$i" 
                 # using RatingPercent breaks using FujiFilm XRAW Studio, don't know why but it does
-                exiftool -q -P -overwrite_original_in_place -Rating=$rat "$i" 
+                exiftool -q -q -P -overwrite_original_in_place -Rating=$rat "$i" 
                 (( countRating++ ))
                 # [[ $rat -ne 0 ]] && \
                 #     funRatingToTag $rat $i
@@ -195,10 +205,12 @@ funRAWPowerRatingToEXIF (){
 
 funMatchSetRatingToKeyword (){
     echo Keyword all photos in Match with their non-zero rating r as "Xr"
-    NFiles=$(ls $WorkFolder/match/*.{$jpg,$raw} | wc -l)
+    # NFiles=$(ls $WorkFolder/match/*.{$jpg,$hif,$raw} | wc -l)
+    NFiles=$(find  $WorkFolder/jpgs/ -type f -name "*.$jpg" -o -name "*.$hif" -o -name "*.$raw" | wc -l)
     printf "  Checking %s files for Ratings \n" $NFiles
     count=0
-    for i in $WorkFolder/match/*.{$jpg,$raw}; do
+    shopt -s nullglob
+    for i in $WorkFolder/match/*.{$jpg,$hif,$raw}; do
         funProgressUpdate $count $NFiles
         (( count++ ))
         # Read EXIF rating and keyword the rating if non-zero
@@ -224,9 +236,9 @@ funKeepToMatch (){
     # not sure if this is needed, trying to make sure that the spotlight search works, i.e. has indexed properly the jpgs folder
     # mdimport $WorkFolder/jpgs/
 
-    echo Copying all JPGs in jpg and all RAF in raw with matching name to the folder match
+    echo Copying all JPG/HIF in jpg and all RAF in raw with matching name to the folder match
     NFiles=$(mdfind 'kMDItemUserTags=Keep' -onlyin $WorkFolder/jpgs/ | wc -l)
-    printf "  Attempting to match %s JPG files\n" $NFiles
+    printf "  Attempting to match %s JPG/HIF files\n" $NFiles
     count=0
     mdfind 'kMDItemUserTags=Keep' -onlyin $WorkFolder/jpgs/ | while read i; do
         funProgressUpdate $count $NFiles
@@ -237,15 +249,21 @@ funKeepToMatch (){
         # cp -n -p $i $WorkFolder/match/$(basename -- $i) # Copy jpgs, don't overwrite
         rsync -acE $i $WorkFolder/match/$(basename -- $i) # Copy jpgs, don't overwrite
         if [ -f $WorkFolder/org/$(basename -- "$i" .$jpg).$raw ] ; then
-            # cp -n -p $WorkFolder/org/$(basename -- "$i" .$jpg).$raw $WorkFolder/match # Copy matching raws
             rsync -acE $WorkFolder/org/$(basename -- "$i" .$jpg).$raw $WorkFolder/match # Copy matching raws
             rat=$(exiftool -s -s -s -Rating $i) # copy the rating to the Raw file
             [[ $rat -ne 0 ]] && \
-                #exiftool -q -P -overwrite_original_in_place -Rating=$rat -RatingPercent=$(( $rat * 20 )) $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
                 # using RatingPercent breaks using FujiFilm XRAW Studio, don't know why but it does
-                exiftool -q -P -overwrite_original_in_place -Rating=$rat $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
+                exiftool -q -q -P -overwrite_original_in_place -Rating=$rat $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
                 funRatingToTag $rat $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
         fi
+        if [ -f $WorkFolder/org/$(basename -- "$i" .$hif).$raw ] ; then
+                    rsync -acE $WorkFolder/org/$(basename -- "$i" .$hif).$raw $WorkFolder/match # Copy matching raws
+                    rat=$(exiftool -s -s -s -Rating $i) # copy the rating to the Raw file
+                    [[ $rat -ne 0 ]] && \
+                        # using RatingPercent breaks using FujiFilm XRAW Studio, don't know why but it does
+                        exiftool -q -q -P -overwrite_original_in_place -Rating=$rat $WorkFolder/match/$(basename -- "$i" .$hif).$raw 
+                        funRatingToTag $rat $WorkFolder/match/$(basename -- "$i" .$hif).$raw 
+                fi
     done
     printf "\r  100 %% Completed \n"
 
@@ -253,15 +271,17 @@ funKeepToMatch (){
 }
 
 funDelJpgsIfRafExistsInMatch () {
-    echo Deleting jpgs with mathing raw files in match foldeer
-    NFiles=$(ls $WorkFolder/match/*.$jpg | wc -l)
-    printf "  Checking %s JPG files\n" $NFiles
+    echo Deleting JPG/HIF with mathing raw files in match foldeer
+    # NFiles=$(ls $WorkFolder/match/*.{$jpg,$hif} | wc -l)
+    NFiles=$(find  $WorkFolder/jpgs/ -type f -name "*.$jpg" -o -name "*.$hif" | wc -l)
+    printf "  Checking %s JPG/HIF files\n" $NFiles
     count=0
-    read -p "Are you sure you want to delete all the raw matched jpg files? " -n 1 -r
+    read -p "Are you sure you want to delete all the raw matched JPG/HIF files? " -n 1 -r
     echo    # (optional) move to a new line
     if [[ $REPLY =~ ^[Yy]$ ]]
     then
-        for i in $WorkFolder/match/*.$jpg; do
+    shopt -s nullglob
+        for i in $WorkFolder/match/*.{$jpg,$hif}; do
             funProgressUpdate $count $NFiles
             (( count++ ))
         #    # Copy raw file if one exists with same name as jpg, otherwise just copy jpg
@@ -269,13 +289,15 @@ funDelJpgsIfRafExistsInMatch () {
             # Check if raw exists # del jpg since raw exists
             [ -f $WorkFolder/match/$(basename -- "$i" .$jpg).$raw ] && \
                 rm $i
+            [ -f $WorkFolder/match/$(basename -- "$i" .$hif).$raw ] && \
+                rm $i    
         done
         printf "\r  100 %% Completed \n"
     fi
 }
 
 funTagRawWoJpg () {
-    echo Tag all RAF files that DO NOT have a JPG by same name, remove tag/s from others
+    echo Tag all RAF files that DO NOT have a JPG/HIF by same name, remove tag/s from others
     NFiles=$(ls $WorkFolder/match/*.$raw | wc -l)
     printf "  Checking %s RAF files\n" $NFiles
     count=0
@@ -286,12 +308,18 @@ funTagRawWoJpg () {
     #    # Copy raw file if one exists with same name as jpg, otherwise just copy jpg
         [ -f "$i" ] || break # Break if no files found
         # Check if JPG exists # tag RAF if JPG doesn't exists
-        [ -f $WorkFolder/match/$(basename -- "$i" .$raw).$jpg ] \
-            || \
-            xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><string>NoJPG</string></array></plist>' $i
-        [ -f $WorkFolder/match/$(basename -- "$i" .$raw).$jpg ] \
-            && \
+        # [ (-f $WorkFolder/match/$(basename -- "$i" .$raw).$jpg) ] \
+        #     || \
+        #     xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><string>NoJPG</string></array></plist>' $i
+        # [ -f $WorkFolder/match/$(basename -- "$i" .$raw).$jpg ] \
+        #     && \
+        #     xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array></array></plist>' $i
+        
+        if [ -f $WorkFolder/match/$(basename -- "$i" .$raw).$jpg ] || [ -f $WorkFolder/match/$(basename -- "$i" .$raw).$hif ]; then 
             xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array></array></plist>' $i
+        else
+            xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><string>NoJPG</string></array></plist>' $i
+        fi
     done
     printf "\r  100 %% Completed \n"
 }
@@ -301,7 +329,7 @@ funExportToApplePhotos () {
     #vared -p "Quality percentage [0-100] (Apple default is 80): " -c HEICquality
     # read -p 'User to greet: ' -e -i 'Yoda' username
     #read -p "Quality percentage [0-100] (Apple default is 80): " -e -i $HEICquality HEICquality
-    printf "Quality percentage [0-100], Default %s (Apple default is 80): " $HEICquality
+    printf "Quality percentage [0-100] for JPG->HEIC (HEIF are just copied), Default %s (Apple default is 80): " $HEICquality
     read tmpHEIC
     HEICquality="${tmpHEIC:=$HEICquality}"
     if [ $HEICquality -lt 0 ] || [ $HEICquality -gt 100 ]; then
@@ -320,13 +348,24 @@ funExportToApplePhotos () {
         (( count++ ))
         funJpgToHeic $i $WorkFolder/ToApplePhotos/$(basename -- "$i" .$jpg).$heic
     done
-    printf "\r  100 %% Completed \n"
+    printf "\r  100 %% Completed JPGs\n"
+
+    NFiles=$(ls $WorkFolder/match/*.$hif | wc -l)
+        printf "  Copying %s HIF files\n" $NFiles
+        count=0
+        for i in $WorkFolder/match/*.$hif; do
+            funProgressUpdate $count $NFiles
+            (( count++ ))
+            # funJpgToHeic $i $WorkFolder/ToApplePhotos/$(basename -- "$i" .$hif).$heic
+            cp $i $WorkFolder/ToApplePhotos/
+        done
+        printf "\r  100 %% Completed HIFs\n"
 }
 
 funJpgToHeic () {
     # Convert jpg to heic, first argument is input file, second output file
     #sips -s format heic -s formatOptions80 jpgs/XT300394.JPG --out test.heic
-    sips -s format heic -s formatOptions $HEICquality $1 --out $2 >> /dev/null
+    sips -s format heic -s formatOptions $HEICquality $1 --out $2 > /dev/null
     # Get the creation date time stamp of the target file, saved as 't'.
     t="$(/usr/bin/GetFileInfo -d "$1")"
     # Set the modified and creation date time stamps of the target file to the saved value held in 't'.
@@ -395,14 +434,17 @@ funCopyFileArray(){
     # funCopyFileArray copy_files[@] "./destination/"
     declare -a arr=("${!1}")
     local dest="$2"
-
-    echo "Copying Files"
-    funProgressUpdate 0 "${#arr[@]}"
-    for i in "${!arr[@]}"; do
-        funProgressUpdate $i "${#arr[@]}"
-        rsync -acE "${arr[i]}" "$dest"
-    done
-    printf "\r  100 %% Completed \n"
+    if [ ${#errors[@]} -eq 0 ]; then
+        echo "No Files To Copy"
+    else
+        echo "Copying Files"
+        funProgressUpdate 0 "${#arr[@]}"
+        for i in "${!arr[@]}"; do
+            funProgressUpdate $i "${#arr[@]}"
+            rsync -acE "${arr[i]}" "$dest"
+        done
+        printf "\r  100 %% Completed \n"
+    fi
 }
 
 funVerifyCopyFileArray(){
@@ -475,6 +517,9 @@ funCopyExternalOriginals (){
                 jpgfiles_str=$(find "$opt" -type f -name "*.$jpg" -not -path "*/.*" 2>/dev/null);
                 IFS=$'\n' jpgfiles_arr=($jpgfiles_str)
 
+                hiffiles_str=$(find "$opt" -type f -name "*.$hif" -not -path "*/.*" 2>/dev/null);
+                IFS=$'\n' hiffiles_arr=($hiffiles_str)
+
                 rawfiles_str=$(find "$opt" -type f -name "*.$raw" -not -path "*/.*" 2>/dev/null);
                 IFS=$'\n' rawfiles_arr=($rawfiles_str)
 
@@ -484,11 +529,13 @@ funCopyExternalOriginals (){
                 # Combine into one array of filenames
                 photofiles_arr=()
                 photofiles_arr+=( "${jpgfiles_arr[@]}" )
+                photofiles_arr+=( "${hiffiles_arr[@]}" )
                 photofiles_arr+=( "${rawfiles_arr[@]}" )
                 photofiles_arr+=( "${movfiles_arr[@]}" )
 
                 # Declare found files
                 echo "Found ${#jpgfiles_arr[@]} $jpg files."
+                echo "Found ${#hiffiles_arr[@]} $hif files."
                 echo "Found ${#rawfiles_arr[@]} $raw files."
                 echo "Found ${#movfiles_arr[@]} $mov files."
 
@@ -529,7 +576,7 @@ funCopyExternalOriginals (){
 ###################################################################
 #  Menu
 ################################################################### 
-PS3='Please enter your choice: '
+PS3='Please enter your choice (JPG also includes HIF files): '
 options=(
     "Start:         Open org folder and external drives, copy photos and movies" 
     "Initialize:    Copy JPGs from org to jpgs folder, tag starred pics \"Keep\"" 
@@ -569,14 +616,20 @@ while true; do
             IFS=$'\n' jpgfiles_arr=($jpgfiles_str)
             echo "Copying ${#jpgfiles_arr[@]} files"
             funCopyFileArray jpgfiles_arr[@]  "$WorkFolder/jpgs/"
+
+
+            hiffiles_str=$(find $WorkFolder/org/*.$hif -type f -name "*.$hif" -not -path "*/.*" 2>/dev/null);
+            IFS=$'\n' hiffiles_arr=($hiffiles_str)
+            echo "Copying ${#hiffiles_arr[@]} files"
+            funCopyFileArray hiffiles_arr[@]  "$WorkFolder/jpgs/"
             
             # rsync -acE $WorkFolder/org/*.$jpg $WorkFolder/jpgs/
             if [[ $( find $WorkFolder/org -name "*.$mov" | grep . ) ]]; then 
                 # rsync -acE $WorkFolder/org/*.$mov $WorkFolder/mov/
                 movfiles_str=$(find $WorkFolder/org/*.$mov -type f -name "*.$mov" -not -path "*/.*" 2>/dev/null);
                 IFS=$'\n' movfiles_arr=($movfiles_str)
-                echo "Copying ${#jpgfiles_arr[@]} files"
-                funCopyFileArray jpgfiles_arr[@]  "$WorkFolder/mov/"
+                echo "Copying ${#movfiles_str[@]} files"
+                funCopyFileArray movfiles_str[@]  "$WorkFolder/mov/"
             fi
             funRatingToKeepTag
             open -a Finder $WorkFolder/jpgs/
