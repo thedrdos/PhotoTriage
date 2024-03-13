@@ -434,7 +434,7 @@ funCopyFileArray(){
     # funCopyFileArray copy_files[@] "./destination/"
     declare -a arr=("${!1}")
     local dest="$2"
-    if [ ${#errors[@]} -eq 0 ]; then
+    if [ ${#arr[@]} -eq 0 ]; then
         echo "No Files To Copy"
     else
         echo "Copying Files"
@@ -614,13 +614,13 @@ while true; do
 
             jpgfiles_str=$(find $WorkFolder/org/*.$jpg -type f -name "*.$jpg" -not -path "*/.*" 2>/dev/null);
             IFS=$'\n' jpgfiles_arr=($jpgfiles_str)
-            echo "Copying ${#jpgfiles_arr[@]} files"
+            echo "Copying ${#jpgfiles_arr[@]} $jpg files"
             funCopyFileArray jpgfiles_arr[@]  "$WorkFolder/jpgs/"
 
 
             hiffiles_str=$(find $WorkFolder/org/*.$hif -type f -name "*.$hif" -not -path "*/.*" 2>/dev/null);
             IFS=$'\n' hiffiles_arr=($hiffiles_str)
-            echo "Copying ${#hiffiles_arr[@]} files"
+            echo "Copying ${#hiffiles_arr[@]} $hif files"
             funCopyFileArray hiffiles_arr[@]  "$WorkFolder/jpgs/"
             
             # rsync -acE $WorkFolder/org/*.$jpg $WorkFolder/jpgs/
@@ -628,7 +628,7 @@ while true; do
                 # rsync -acE $WorkFolder/org/*.$mov $WorkFolder/mov/
                 movfiles_str=$(find $WorkFolder/org/*.$mov -type f -name "*.$mov" -not -path "*/.*" 2>/dev/null);
                 IFS=$'\n' movfiles_arr=($movfiles_str)
-                echo "Copying ${#movfiles_str[@]} files"
+                echo "Copying ${#movfiles_str[@]} $mov files"
                 funCopyFileArray movfiles_str[@]  "$WorkFolder/mov/"
             fi
             funRatingToKeepTag
