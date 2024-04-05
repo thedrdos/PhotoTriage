@@ -108,23 +108,23 @@ funRatingToTag (){
 
 # couldn't get exiftool to shut up and stop just listing all exif data, hence this workaround of capturing the output and grep-ing Errors
 funAdd5StarKeyword (){
-    outcheck=$(exiftool -q -q -P -overwrite_original_in_place -keywords-=R*****5 -keywords+=R*****5 $1)
+    outcheck=$(exiftool -q -q -P -overwrite_original_in_place -Subject-="R*****5" -Subject+="R*****5" $1)
     echo $outcheck | grep Error
 }
 funAdd4StarKeyword (){
-    outcheck=$(exiftool -q-q -P -overwrite_original_in_place -keywords-=R****4 -keywords+=R****4 $1)
+    outcheck=$(exiftool -q -q -P -overwrite_original_in_place -Subject-="R****4" -Subject+="R****4" $1)
     echo $outcheck | grep Error
 }
 funAdd3StarKeyword (){
-    outcheck=$(exiftool -q -q -P -overwrite_original_in_place -keywords-=R***3 -keywords+=R***3 $1)
+    outcheck=$(exiftool -q -q -P -overwrite_original_in_place -Subject-="R***3" -Subject+="R***3" $1)
     echo $outcheck | grep Error
 }
 funAdd2StarKeyword (){
-    outcheck=$(exiftool -q -q -P -overwrite_original_in_place -keywords-=R**2 -keywords+=R**2 $1)
+    outcheck=$(exiftool -q -q -P -overwrite_original_in_place -Subject-="R**2" -Subject+="R**2" $1)
     echo $outcheck | grep Error
 }
 funAdd1StarKeyword (){
-    outcheck=$(exiftool -q -q -P -overwrite_original_in_place -keywords-=R*1 -keywords+=R*1 $1)
+    outcheck=$(exiftool -q -q -P -overwrite_original_in_place -Subject-="R*1" -Subject+="R*1" $1)
     echo $outcheck | grep Error
 }
 funRatingToKeyword (){
@@ -204,9 +204,9 @@ funRAWPowerRatingToEXIF (){
 }
 
 funMatchSetRatingToKeyword (){
-    echo Keyword all photos in Match with their non-zero rating r as "Xr"
+    echo Set Subject of all photos in Match with rating 1-5 as R\*1 to R\*\*\*\*\*5
     # NFiles=$(ls $WorkFolder/match/*.{$jpg,$hif,$raw} | wc -l)
-    NFiles=$(find  $WorkFolder/jpgs/ -type f -name "*.$jpg" -o -name "*.$hif" -o -name "*.$raw" | wc -l)
+    NFiles=$(find  $WorkFolder/match/ -type f -name "*.$jpg" -o -name "*.$hif" -o -name "*.$raw" | wc -l)
     printf "  Checking %s files for Ratings \n" $NFiles
     count=0
     shopt -s nullglob
@@ -219,6 +219,23 @@ funMatchSetRatingToKeyword (){
         #     funAddKeepTag "$i"
         [[ $rat -ne 0 ]] && \
                 funRatingToKeyword $rat $i
+    done
+    printf "\r  100 %% Completed \n"
+
+}
+
+funMatchSetOrgFileNameToEXIF (){
+    echo Set the OriginalFileName of all non-raw photos in Match to their current name
+    # NFiles=$(ls $WorkFolder/match/*.{$jpg,$hif,$raw} | wc -l)
+    NFiles=$(find  $WorkFolder/match/ -type f -name "*.$jpg" -o -name "*.$hif" -o -name "*.$raw" | wc -l)
+    printf "  Setting Original File Name for %s files\n" $NFiles
+    count=0
+    shopt -s nullglob
+    for i in $WorkFolder/match/*.{$jpg,$hif}; do
+        funProgressUpdate $count $NFiles
+        (( count++ ))
+        outcheck=$(exiftool -q -q -P -overwrite_original_in_place -OriginalFileName="$(basename $i)" $i)
+        echo $outcheck | grep Error
     done
     printf "\r  100 %% Completed \n"
 
@@ -250,24 +267,27 @@ funKeepToMatch (){
         rsync -acE $i $WorkFolder/match/$(basename -- $i) # Copy jpgs, don't overwrite
         if [ -f $WorkFolder/org/$(basename -- "$i" .$jpg).$raw ] ; then
             rsync -acE $WorkFolder/org/$(basename -- "$i" .$jpg).$raw $WorkFolder/match # Copy matching raws
-            rat=$(exiftool -s -s -s -Rating $i) # copy the rating to the Raw file
-            [[ $rat -ne 0 ]] && \
-                # using RatingPercent breaks using FujiFilm XRAW Studio, don't know why but it does
-                exiftool -q -q -P -overwrite_original_in_place -Rating=$rat $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
-                funRatingToTag $rat $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
+            # Messing with raw file EXIF data seems to just be problemnatic for FujiFilm XRAW studio
+            # rat=$(exiftool -s -s -s -Rating $i) # copy the rating to the Raw file
+            # [[ $rat -ne 0 ]] && \
+            #     # using RatingPercent breaks using FujiFilm XRAW Studio, don't know why but it does
+            #     exiftool -q -q -P -overwrite_original_in_place -Rating=$rat $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
+            #     funRatingToTag $rat $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
         fi
         if [ -f $WorkFolder/org/$(basename -- "$i" .$hif).$raw ] ; then
                     rsync -acE $WorkFolder/org/$(basename -- "$i" .$hif).$raw $WorkFolder/match # Copy matching raws
-                    rat=$(exiftool -s -s -s -Rating $i) # copy the rating to the Raw file
-                    [[ $rat -ne 0 ]] && \
-                        # using RatingPercent breaks using FujiFilm XRAW Studio, don't know why but it does
-                        exiftool -q -q -P -overwrite_original_in_place -Rating=$rat $WorkFolder/match/$(basename -- "$i" .$hif).$raw 
-                        funRatingToTag $rat $WorkFolder/match/$(basename -- "$i" .$hif).$raw 
+                    # Messing with raw file EXIF data seems to just be problemnatic for FujiFilm XRAW studio
+                    # rat=$(exiftool -s -s -s -Rating $i) # copy the rating to the Raw file
+                    # [[ $rat -ne 0 ]] && \
+                    #     # using RatingPercent breaks using FujiFilm XRAW Studio, don't know why but it does
+                    #     exiftool -q -q -P -overwrite_original_in_place -Rating=$rat $WorkFolder/match/$(basename -- "$i" .$hif).$raw 
+                    #     funRatingToTag $rat $WorkFolder/match/$(basename -- "$i" .$hif).$raw 
                 fi
     done
     printf "\r  100 %% Completed \n"
 
     funMatchSetRatingToKeyword
+    funMatchSetOrgFileNameToEXIF
 }
 
 funDelJpgsIfRafExistsInMatch () {
@@ -587,6 +607,7 @@ options=(
     "Clean Up:      Keep, Trash"
     "Open Ext:      Open mounted external drives"
     "Unmount Ext:   Unmount mounted external drives"
+    "Ratings to Keywords:  In match, read ratings and assing R*..* ratings"
     "Quit:          Terminate this menu - Also if any other entry not on this menu")
 
 while true; do
@@ -688,6 +709,11 @@ while true; do
             funUnmountExternalDrives
             break
             ;;
+        "Ratings to Keywords:  In match, read ratings and assing R*..* ratings")
+            funMatchSetRatingToKeyword
+            funMatchSetOrgFileNameToEXIF
+            break
+            ;;    
         "Quit:          Terminate this menu - Also if any other entry not on this menu")
             echo  $opt
             break 2
