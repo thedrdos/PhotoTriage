@@ -245,13 +245,6 @@ funMatchSetOrgFileNameToEXIF (){
 funKeepToMatch (){
     funRAWPowerRatingToEXIF
     funRatingToKeepTag
-    #funRatingToEXIFkeyword
-    #  example: exiftool -q -P -overwrite_original_in_place -keywords-=X3 -keywords+=X3 testimg.JPG # doesn't change create/modify date and prevents duplicate keywords
-
-
-    #read -t 4 # Pause 1 sec, hopefully the tag database catches up
-    # not sure if this is needed, trying to make sure that the spotlight search works, i.e. has indexed properly the jpgs folder
-    # mdimport $WorkFolder/jpgs/
 
     echo Copying all JPG/HIF in jpg and all RAF in raw with matching name to the folder match
     NFiles=$(mdfind 'kMDItemUserTags=Keep' -onlyin $WorkFolder/jpgs/ | wc -l)
@@ -260,29 +253,15 @@ funKeepToMatch (){
     mdfind 'kMDItemUserTags=Keep' -onlyin $WorkFolder/jpgs/ | while read i; do
         funProgressUpdate $count $NFiles
         (( count++ ))
-        # If a rating was assigned by RAW Power, then write it to the EXIF data and tag the file to keep
         # Copy the raw file if one exists with same name as jpg
         [ -f "$i" ] || break # Break if no files found
-        # cp -n -p $i $WorkFolder/match/$(basename -- $i) # Copy jpgs, don't overwrite
-        rsync -acE $i $WorkFolder/match/$(basename -- $i) # Copy jpgs, don't overwrite
+        rsync -acE $i $WorkFolder/match/ # Copy jpgs, don't overwrite
         if [ -f $WorkFolder/org/$(basename -- "$i" .$jpg).$raw ] ; then
             rsync -acE $WorkFolder/org/$(basename -- "$i" .$jpg).$raw $WorkFolder/match # Copy matching raws
-            # Messing with raw file EXIF data seems to just be problemnatic for FujiFilm XRAW studio
-            # rat=$(exiftool -s -s -s -Rating $i) # copy the rating to the Raw file
-            # [[ $rat -ne 0 ]] && \
-            #     # using RatingPercent breaks using FujiFilm XRAW Studio, don't know why but it does
-            #     exiftool -q -q -P -overwrite_original_in_place -Rating=$rat $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
-            #     funRatingToTag $rat $WorkFolder/match/$(basename -- "$i" .$jpg).$raw 
         fi
         if [ -f $WorkFolder/org/$(basename -- "$i" .$hif).$raw ] ; then
-                    rsync -acE $WorkFolder/org/$(basename -- "$i" .$hif).$raw $WorkFolder/match # Copy matching raws
-                    # Messing with raw file EXIF data seems to just be problemnatic for FujiFilm XRAW studio
-                    # rat=$(exiftool -s -s -s -Rating $i) # copy the rating to the Raw file
-                    # [[ $rat -ne 0 ]] && \
-                    #     # using RatingPercent breaks using FujiFilm XRAW Studio, don't know why but it does
-                    #     exiftool -q -q -P -overwrite_original_in_place -Rating=$rat $WorkFolder/match/$(basename -- "$i" .$hif).$raw 
-                    #     funRatingToTag $rat $WorkFolder/match/$(basename -- "$i" .$hif).$raw 
-                fi
+            rsync -acE $WorkFolder/org/$(basename -- "$i" .$hif).$raw $WorkFolder/match # Copy matching raws
+        fi
     done
     printf "\r  100 %% Completed \n"
 
@@ -327,13 +306,6 @@ funTagRawWoJpg () {
         (( count++ ))
     #    # Copy raw file if one exists with same name as jpg, otherwise just copy jpg
         [ -f "$i" ] || break # Break if no files found
-        # Check if JPG exists # tag RAF if JPG doesn't exists
-        # [ (-f $WorkFolder/match/$(basename -- "$i" .$raw).$jpg) ] \
-        #     || \
-        #     xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><string>NoJPG</string></array></plist>' $i
-        # [ -f $WorkFolder/match/$(basename -- "$i" .$raw).$jpg ] \
-        #     && \
-        #     xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array></array></plist>' $i
         
         if [ -f $WorkFolder/match/$(basename -- "$i" .$raw).$jpg ] || [ -f $WorkFolder/match/$(basename -- "$i" .$raw).$hif ]; then 
             xattr -w com.apple.metadata:_kMDItemUserTags '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array></array></plist>' $i
@@ -376,8 +348,7 @@ funExportToApplePhotos () {
         for i in $WorkFolder/match/*.$hif; do
             funProgressUpdate $count $NFiles
             (( count++ ))
-            # funJpgToHeic $i $WorkFolder/ToApplePhotos/$(basename -- "$i" .$hif).$heic
-            cp $i $WorkFolder/ToApplePhotos/
+            rsync -acE $i $WorkFolder/ToApplePhotos/
         done
         printf "\r  100 %% Completed HIFs\n"
 }
